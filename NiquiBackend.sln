@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NiquiBackend", "NiquiBackend.csproj", "{0395AEF7-C4E6-1C98-B9D5-10D06B4D0EAB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0395AEF7-C4E6-1C98-B9D5-10D06B4D0EAB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0395AEF7-C4E6-1C98-B9D5-10D06B4D0EAB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0395AEF7-C4E6-1C98-B9D5-10D06B4D0EAB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0395AEF7-C4E6-1C98-B9D5-10D06B4D0EAB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A46ECED4-3E94-4ACA-B90A-8CF79007516E}
+	EndGlobalSection
+EndGlobal
