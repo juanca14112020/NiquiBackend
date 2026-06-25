@@ -11,22 +11,28 @@ namespace NiquiBackedn.Controllers
     public class LlamadasController : ControllerBase
     {
         private readonly ILogger<LlamadasController> _logger;
-        private readonly IConfiguration _configuration; // <--- Agregamos la configuración
+        private readonly IConfiguration _configuration;
 
         public LlamadasController(ILogger<LlamadasController> logger, IConfiguration configuration)
         {
             _logger = logger;
-            _configuration = configuration; // <--- Inyectamos
+            _configuration = configuration;
         }
 
         [HttpPost("iniciar")]
         public IActionResult IniciarLlamada([FromBody] SolicitudLlamadaTest solicitud)
         {
-            _logger.LogInformation("Iniciando llamada de prueba con twilio hacia: {Numero}", solicitud.NumeroDestino);
+            _logger.LogInformation("Iniciando llamada de prueba con Twilio hacia: {Numero}", solicitud.NumeroDestino);
 
-            string accountSid = _configuration["Twilio:AccountSid"] ?? string.Empty;
-            string authToken = _configuration["Twilio:AuthToken"] ?? string.Empty;
-            string twilioPhoneNumber = _configuration["Twilio:PhoneNumber"] ?? string.Empty;
+            // Leer credenciales de appsettings.json de forma segura
+            string accountSid = _configuration["Twilio:AccountSid"];
+            string authToken = _configuration["Twilio:AuthToken"];
+            string twilioPhoneNumber = _configuration["Twilio:PhoneNumber"];
+
+            if (string.IsNullOrEmpty(accountSid) || string.IsNullOrEmpty(authToken))
+            {
+                return StatusCode(500, "Error de configuración: Faltan las credenciales de Twilio.");
+            }
 
             TwilioClient.Init(accountSid, authToken);
 
