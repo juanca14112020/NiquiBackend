@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore.Internal;
 using NiquiBackend.Application.DTOs.Auth;
-using NiquiBackend.Application.DTOS.Auth;
 using NiquiBackend.Application.Interfaces.Services;
 
 namespace NiquiBackend.Controllers;
@@ -27,7 +26,7 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
-    [HttpPost("Reguister-developer-temp")]
+    [HttpPost("Register-developer-temp")]
     public async Task<IActionResult> RegisterDeveloperTemp([FromBody] RegisterRequestDto request)
     {
         try

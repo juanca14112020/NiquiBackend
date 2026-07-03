@@ -55,6 +55,12 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy("SuperAdminOnly",
         policy => policy.RequireRole("SuperAdmin"));    
+    
+    options.AddPolicy("DeveloperOrSuperAdmin",
+        policy => policy.RequireRole("Developer", "SuperAdmin"));
+    
+    options.AddPolicy("AnyAuthenticatedRole",
+        policy => policy.RequireRole("Developer", "SuperAdmin", "Admin"));
 });
 
 //Swagger

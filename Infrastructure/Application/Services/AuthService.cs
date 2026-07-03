@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using NiquiBackend.Application.DTOs.Auth;
-using NiquiBackend.Application.DTOS.Auth;
 using NiquiBackend.Application.Interfaces.Infrastructure;
 using NiquiBackend.Application.Interfaces.Services;
 using NiquiBackend.Infrastructure.Persistence.Generated;
@@ -61,7 +60,7 @@ public class AuthService : IAuthService
                     $"{admin.FirstName} {admin.LastName}", admin.Email);
         }
         //No se encontraron en niguna tabla o el passweord es incorrecto
-        return null;
+        return null!;
     }
 
     public async Task<Guid> RegisterDeveloperAsync(RegisterRequestDto request)
