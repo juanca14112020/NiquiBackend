@@ -25,7 +25,7 @@ public partial class Customer
     [Unicode(false)]
     public string Convenio { get; set; } = null!;
 
-    [StringLength(10)]
+    [StringLength(15)]
     [Unicode(false)]
     public string PhoneNumber { get; set; } = null!;
 

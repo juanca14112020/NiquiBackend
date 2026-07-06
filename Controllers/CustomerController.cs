@@ -8,7 +8,7 @@ namespace NiquiBackend.Controllers;
 
 [ApiController]
 [Route("api/customers")]
-[Authorize(Policy ="AnyAuthenticatedRole")]
+[Authorize(Policy = "AnyAuthenticatedRole")]
 public class CustomerController : ControllerBase
 {
     private readonly ICustomerService _customerService;
@@ -22,6 +22,9 @@ public class CustomerController : ControllerBase
 
     //Developer, SuperAdmin y Admin pueden ver el listado completo
     [HttpGet]
+    public async Task<IActionResult> GetAll() => Ok(await _customerService.GetAllAsync());
+
+    [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var customer = await _customerService.GetByIdAsync(id);
@@ -38,29 +41,29 @@ public class CustomerController : ControllerBase
         var created = await _customerService.CreateAsync(dto, currentUserId, role);
         return CreatedAtAction(nameof(GetById), new { id = created.CustomerId }, created);
     }
-    
+
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] CustomerUpdateDto dto)
+    public async Task<IActionResult> update(Guid id, [FromBody] CustomerUpdateDto dto)
     {
         var success = await _customerService.UpdateAsync(id, dto);
         return success ? NoContent() : NotFound();
     }
 
-    [HttpDelete("{id:guid}")]
+    [HttpDelete("id:guid")]
     public async Task<IActionResult> Delete(Guid id)
     {
         var success = await _customerService.DeleteAsync(id);
         return success ? NoContent() : NotFound();
     }
 
-    //Bulk import: SOLO SuperAdmin y Admin
+    //BulkImport: SOLO SuperAdmin y Admin
     [HttpPost("bulk-import")]
     [Authorize(Policy = "CanBulkImportCustomers")]
-    [ProducesResponseType(typeof(CustomerBulkImportResultDto), StatusCodes.Status200OK) ]
+    [ProducesResponseType(typeof(CustomerBulkImportResultDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> BulkImport(IFormFile file)
     {
         if (file is null || file.Length == 0)
-            return BadRequest("Debe adjuntar un archivo .xlsx");
+            return BadRequest("Debe adjuntar un archivo .xlsx.");
 
         var role = User.FindFirstValue(ClaimTypes.Role)!;
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -70,4 +73,5 @@ public class CustomerController : ControllerBase
 
         return Ok(result);
     }
+
 }

@@ -3,10 +3,11 @@ using FluentValidation;
 using NiquiBackend.Application.DTOs.Customer;
 using NiquiBackend.Application.Interfaces.Infrastructure;
 using NiquiBackend.Application.Interfaces.Services;
+using NiquiBackend.Infrastructure.Common;
 
 namespace NiquiBackend.Application.Services;
 
-//Restringido a SuperAdmin y Admin (El developer NO sa este metodo por decisión del negocio)
+// Restringido a SuperAdmin y Admin (el Developer NO usa este metodo, por decision de negocio).
 public class CustomerBulkImportService : ICustomerBulkImportService
 {
     private readonly IExcelReaderService _excelReader;
@@ -43,26 +44,33 @@ public class CustomerBulkImportService : ICustomerBulkImportService
 
         foreach (var row in rows)
         {
+            // Normaliza el telefono a +573XXXXXXXXX (agrega +57 si no lo tenia).
+            // Si no se puede reconocer como celular colombiano, se deja el valor original
+            // para que el mensaje de error del validador muestre lo que vino en el Excel.
+            var normalizedPhone = ColombianPhoneNormalizer.Normalize(row.PhoneNumber);
+            if (normalizedPhone != null)
+                row.PhoneNumber = normalizedPhone;
+
             var validation = await _validator.ValidateAsync(row);
             if (!validation.IsValid)
             {
                 result.Rejected++;
                 result.Errors.Add(
                     $"Fila {row.RowNumber}: {string.Join("; ", validation.Errors.Select(e => e.ErrorMessage))}");
-                    continue;
+                continue;
             }
 
             var dr = table.NewRow();
-            dr["CustomerId"] = Guid.NewGuid();
-            dr["FIrstName"] = row.FirstName;
+            dr["CustomerID"] = Guid.NewGuid();
+            dr["FirstName"] = row.FirstName;
             dr["LastName"] = row.LastName;
             dr["Convenio"] = row.Convenio;
             dr["PhoneNumber"] = row.PhoneNumber;
             dr["IsApproved"] = false;
             dr["IsCalled"] = false;
-            dr["CreatedBySuperAdminID"] = 
+            dr["CreatedBySuperAdminID"] =
                 currentUserRole == "SuperAdmin" ? currentUserId : DBNull.Value;
-            dr["CreatedByAdminID"] = 
+            dr["CreatedByAdminID"] =
                 currentUserRole == "Admin" ? currentUserId : DBNull.Value;
             dr["CreatedAt"] = DateTime.UtcNow;
 
@@ -74,7 +82,7 @@ public class CustomerBulkImportService : ICustomerBulkImportService
             await _bulkInsert.BulkInsertAsync(table, "Customer");
             result.Inserted = table.Rows.Count;
         }
+
         return result;
     }
-
 }
