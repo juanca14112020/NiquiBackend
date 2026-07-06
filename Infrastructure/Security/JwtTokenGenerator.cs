@@ -11,7 +11,7 @@ public class JwtTokenGenerator : IJwtTokenGenerator
 {
     private readonly IConfiguration _config;
 
-    public JwtTokenGenerator (IConfiguration config) => _config = config;
+    public JwtTokenGenerator(IConfiguration config) => _config = config;
 
     public (string Token, DateTime ExpiresAt) GenerateToken(Guid userId, string email, string fullName, string role)
     {
@@ -34,7 +34,7 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         var token = new JwtSecurityToken(
             issuer: jwtSettings["Issuer"],
             audience: jwtSettings["Audience"],
-            claims : claims,
+            claims: claims,
             expires: expiresAt,
             signingCredentials: creds
         );

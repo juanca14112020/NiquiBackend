@@ -1,11 +1,16 @@
 using System.Text;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using NiquiBackend.Application.DTOs.Customer;
 using NiquiBackend.Application.Interfaces.Infrastructure;
 using NiquiBackend.Application.Interfaces.Services;
 using NiquiBackend.Application.Services;
+using NiquiBackend.Application.Validators;
+using NiquiBackend.Infrastructure.BulkOperations;
+using NiquiBackend.Infrastructure.ExcelReading;
 using NiquiBackend.Infrastructure.Persistence.Generated;
 using NiquiBackend.Infrastructure.Security;
 
@@ -77,11 +82,11 @@ builder.Services.AddSwaggerGen( options =>
     options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
-        Scheme = "Bearer",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "bearer",
         BearerFormat = "JWT",
         In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Description = "Ingresa el token así: Bearer {tu_token}"
+        Description = "Pegar SOLO el token"
     });
 
     options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
@@ -111,18 +116,21 @@ builder.Services.AddCors(options =>
     });
 });
 
-//Servicios propios (Se activan a medida que se vayan creando)
-// builder.Services.AddScoped<IExcelReaderService, ExcelReaderService>();
-// builder.Services.AddScoped<IBulkInsertService, SqlBulkInsertService>();
-// builder.Services.AddScoped<ICustomerBulkImportService, CustomerBulkImportService>();
-// builder.Services.AddScoped<IAuthService, AuthService>();
-// builder.Services.AddScoped<IDeveloperRepository, DeveloperRepository>();
-// builder.Services.AddScoped<ISuperAdminRepository, SuperAdminRepository>();
-// builder.Services.AddScoped<IAdminRepository, AdminRepository>();
-// builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+
+builder.Services.AddScoped<IDeveloperService, DeveloperService>();
+builder.Services.AddScoped<ISuperAdminService, SuperAdminService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+
+builder.Services.AddScoped<IValidator<CustomerImportRowDto>,CustomerImportRowValidator>();
+
+builder.Services.AddScoped<IExcelReaderService, ExcelReaderService>();
+builder.Services.AddScoped<IBulkInsertService, SqlBulkInsertService>();
+builder.Services.AddScoped<ICustomerBulkImportService, CustomerBulkImportService>();
 
 var app = builder.Build();
 
