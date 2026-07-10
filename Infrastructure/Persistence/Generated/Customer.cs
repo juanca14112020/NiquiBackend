@@ -13,13 +13,9 @@ public partial class Customer
     [Column("CustomerID")]
     public Guid CustomerId { get; set; }
 
-    [StringLength(50)]
+    [StringLength(101)]
     [Unicode(false)]
-    public string FirstName { get; set; } = null!;
-
-    [StringLength(50)]
-    [Unicode(false)]
-    public string LastName { get; set; } = null!;
+    public string FullName { get; set; } = null!;
 
     [StringLength(100)]
     [Unicode(false)]

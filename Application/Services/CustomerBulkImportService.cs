@@ -32,8 +32,7 @@ public class CustomerBulkImportService : ICustomerBulkImportService
 
         var table = new DataTable();
         table.Columns.Add("CustomerID", typeof(Guid));
-        table.Columns.Add("FirstName", typeof(string));
-        table.Columns.Add("LastName", typeof(string));
+        table.Columns.Add("FullName", typeof(string));
         table.Columns.Add("Convenio", typeof(string));
         table.Columns.Add("PhoneNumber", typeof(string));
         table.Columns.Add("IsApproved", typeof(bool));
@@ -62,8 +61,7 @@ public class CustomerBulkImportService : ICustomerBulkImportService
 
             var dr = table.NewRow();
             dr["CustomerID"] = Guid.NewGuid();
-            dr["FirstName"] = row.FirstName;
-            dr["LastName"] = row.LastName;
+            dr["FullName"] = row.FullName;
             dr["Convenio"] = row.Convenio;
             dr["PhoneNumber"] = row.PhoneNumber;
             dr["IsApproved"] = false;

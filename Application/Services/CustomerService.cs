@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using NiquiBackend.Application.DTOs.Common;
 using NiquiBackend.Application.DTOs.Customer;
@@ -20,8 +21,7 @@ public class CustomerService : ICustomerService
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var searchTerm = filter.Search.ToLower();
-            query = query.Where(c => c.FirstName.ToLower().Contains(searchTerm) || 
-                                     c.LastName.ToLower().Contains(searchTerm));
+            query = query.Where(c => c.FullName.ToLower().Contains(searchTerm));
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Convenio))
@@ -50,8 +50,7 @@ public class CustomerService : ICustomerService
             .Select(c => new CustomerResponseDto
             {
                 CustomerId = c.CustomerId,
-                FirstName = c.FirstName,
-                LastName = c.LastName,
+                FullName = c.FullName,
                 Convenio = c.Convenio,
                 PhoneNumber = c.PhoneNumber,
                 IsApproved = c.IsApproved,
@@ -59,7 +58,6 @@ public class CustomerService : ICustomerService
                 CreatedBySuperAdminId = c.CreatedBySuperAdminId,
                 CreatedByAdminId = c.CreatedByAdminId,
                 CreatedAt = c.CreatedAt,
-                // Validamos solo Admin y SuperAdmin
                 CreatedByName = c.CreatedByAdmin != null ? c.CreatedByAdmin.FirstName + " " + c.CreatedByAdmin.LastName :
                                 c.CreatedBySuperAdmin != null ? c.CreatedBySuperAdmin.FirstName + " " + c.CreatedBySuperAdmin.LastName : "Desconocido"
             })
@@ -85,9 +83,9 @@ public class CustomerService : ICustomerService
         return new CustomerResponseDto
         {
             CustomerId = c.CustomerId,
-            FirstName = c.FirstName,
-            LastName = c.LastName,
+            FullName = c.FullName,
             Convenio = c.Convenio,
+            PhoneNumber = c.PhoneNumber,
             IsApproved = c.IsApproved,
             IsCalled = c.IsCalled,
             CreatedBySuperAdminId = c.CreatedBySuperAdminId,
@@ -101,8 +99,7 @@ public class CustomerService : ICustomerService
         var customer = new Customer
         {
             CustomerId = Guid.NewGuid(),
-            FirstName = dto.FirstName,
-            LastName = dto.LastName,
+            FullName = dto.FullName,
             Convenio = dto.Convenio,
             PhoneNumber = dto.PhoneNumber,
             IsApproved = false,
@@ -118,8 +115,7 @@ public class CustomerService : ICustomerService
         return new CustomerResponseDto
         {
             CustomerId = customer.CustomerId,
-            FirstName = customer.FirstName,
-            LastName = customer.LastName,
+            FullName = customer.FullName,
             Convenio = customer.Convenio,
             PhoneNumber = customer.PhoneNumber,
             IsApproved = customer.IsApproved,
@@ -135,10 +131,19 @@ public class CustomerService : ICustomerService
         var c = await _context.Customers.FindAsync(id);
         if (c is null) return false;
 
-        c.FirstName = dto.FirstName;
-        c.LastName = dto.LastName;
+        if (dto.IsApproved) 
+        {
+            dto.IsCalled = true;
+        }
+        if (!dto.IsCalled)
+        {
+            dto.IsApproved = false;
+        }
+
+        c.FullName = dto.FullName;
         c.Convenio = dto.Convenio;
         c.PhoneNumber = dto.PhoneNumber;
+        
         c.IsApproved = dto.IsApproved;
         c.IsCalled = dto.IsCalled;
 
@@ -154,5 +159,88 @@ public class CustomerService : ICustomerService
         _context.Customers.Remove(c);
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<int> DeleteAllAsync()
+    {
+        return await _context.Customers.ExecuteDeleteAsync();
+    }
+
+    public async Task<byte[]> ExportToExcelAsync(CustomerQueryFilter filter)
+    {
+        var query = _context.Customers.AsQueryable();
+
+        // Mismos filtros que GetPagedAsync, pero SIN Skip/Take (exporta todo lo que matchea)
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var searchTerm = filter.Search.ToLower();
+            query = query.Where(c => c.FullName.ToLower().Contains(searchTerm));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Convenio))
+        {
+            query = query.Where(c => c.Convenio == filter.Convenio);
+        }
+
+        if (filter.IsCalled.HasValue)
+        {
+            query = query.Where(c => c.IsCalled == filter.IsCalled.Value);
+        }
+
+        if (filter.IsApproved.HasValue)
+        {
+            query = query.Where(c => c.IsApproved == filter.IsApproved.Value);
+        }
+
+        var items = await query
+            .OrderByDescending(c => c.CreatedAt)
+            .Select(c => new CustomerResponseDto
+            {
+                CustomerId = c.CustomerId,
+                FullName = c.FullName,
+                Convenio = c.Convenio,
+                PhoneNumber = c.PhoneNumber,
+                IsApproved = c.IsApproved,
+                IsCalled = c.IsCalled,
+                CreatedAt = c.CreatedAt,
+                CreatedByName = c.CreatedByAdmin != null ? c.CreatedByAdmin.FirstName + " " + c.CreatedByAdmin.LastName :
+                                c.CreatedBySuperAdmin != null ? c.CreatedBySuperAdmin.FirstName + " " + c.CreatedBySuperAdmin.LastName : "Desconocido"
+            })
+            .ToListAsync();
+
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Clientes");
+
+        ws.Cell(1, 1).Value = "Nombre completo";
+        ws.Cell(1, 2).Value = "Teléfono";
+        ws.Cell(1, 3).Value = "Convenio";
+        ws.Cell(1, 4).Value = "Llamado";
+        ws.Cell(1, 5).Value = "Aceptó";
+        ws.Cell(1, 6).Value = "Creado por";
+        ws.Cell(1, 7).Value = "Fecha de creación";
+
+        var headerRow = ws.Row(1);
+        headerRow.Style.Font.Bold = true;
+        headerRow.Style.Fill.BackgroundColor = XLColor.FromHtml("#1a2130");
+        headerRow.Style.Font.FontColor = XLColor.White;
+
+        var row = 2;
+        foreach (var c in items)
+        {
+            ws.Cell(row, 1).Value = c.FullName;
+            ws.Cell(row, 2).Value = c.PhoneNumber;
+            ws.Cell(row, 3).Value = c.Convenio;
+            ws.Cell(row, 4).Value = c.IsCalled ? "Sí" : "No";
+            ws.Cell(row, 5).Value = c.IsApproved ? "Sí" : "No";
+            ws.Cell(row, 6).Value = c.CreatedByName;
+            ws.Cell(row, 7).Value = c.CreatedAt.ToString("yyyy-MM-dd HH:mm");
+            row++;
+        }
+
+        ws.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
     }
 }

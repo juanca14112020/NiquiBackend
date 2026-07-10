@@ -28,6 +28,14 @@ public class CustomerController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("export")]
+    public async Task<IActionResult> Export([FromQuery] CustomerQueryFilter filter)
+    {
+        var fileBytes = await _customerService.ExportToExcelAsync(filter);
+        var fileName = $"clientes_{DateTime.UtcNow:yyyMMdd_HHmm}.xlsx";
+        return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+    }
+
     // Endpoint para obtener la lista de convenios disponibles para el dropdown
     [HttpGet("convenios")]
     public async Task<IActionResult> GetConvenios()
@@ -66,6 +74,14 @@ public class CustomerController : ControllerBase
     {
         var success = await _customerService.DeleteAsync(id);
         return success ? NoContent() : NotFound();
+    }
+
+    [HttpDelete("delete-all")]
+    [Authorize(Policy = "DeveloperOrSuperAdmin")]
+    public async Task<IActionResult> DeleteAll()
+    {
+        var deletedCount = await _customerService.DeleteAllAsync();
+        return Ok(new { message = "Todos los clientes fueron eliminados. ", deletedCount});
     }
 
     // BulkImport: SOLO SuperAdmin y Admin

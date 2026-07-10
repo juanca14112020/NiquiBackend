@@ -8,14 +8,17 @@ namespace NiquiBackend.Infrastructure.ExcelReading;
 
 public class ExcelReaderService : IExcelReaderService
 {
-    // Alias aceptados para cada campo. Se comparan ya normalizados (sin tildes, en mayusculas, sin espacios extra).
-    private static readonly Dictionary<string, string[]> ColumnAliases = new()
-    {
-        ["FirstName"] = new[] { "NOMBRE", "NOMBRES", "PRIMER NOMBRE", "FIRSTNAME" },
-        ["LastName"] = new[] { "APELLIDO", "APELLIDOS", "LASTNAME" },
-        ["Convenio"] = new[] { "CONVENIO" },
-        ["PhoneNumber"] = new[] { "TELEFONO", "TELEFONOS", "CELULAR", "NUMERO", "NUMERO CELULAR", "TEL", "PHONE", "PHONENUMBER" }
-    };
+    // Alias para nombre completo en una sola columna
+    private static readonly string[] FullNameAliases =
+        { "NOMBRE COMPLETO", "NOMBRE Y APELLIDO", "NOMBRES Y APELLIDOS", "FULLNAME", "NOMBRE COMPLETO CLIENTE" };
+
+    // Alias para cuando el Excel trae Nombre y Apellido en columnas separadas (se concatenan)
+    private static readonly string[] FirstNameAliases = { "NOMBRE", "NOMBRES", "PRIMER NOMBRE", "FIRSTNAME" };
+    private static readonly string[] LastNameAliases = { "APELLIDO", "APELLIDOS", "LASTNAME" };
+
+    private static readonly string[] ConvenioAliases = { "CONVENIO" };
+    private static readonly string[] PhoneAliases =
+        { "TELEFONO", "TELEFONOS", "CELULAR", "NUMERO", "NUMERO CELULAR", "TEL", "PHONE", "PHONENUMBER" };
 
     public List<CustomerImportRowDto> ReadCustomers(Stream fileStream)
     {
@@ -23,16 +26,18 @@ public class ExcelReaderService : IExcelReaderService
         var ws = workbook.Worksheet(1);
 
         var headerRow = ws.Row(1);
-        var columnMap = MapColumns(headerRow);
+        var (fullNameCol, firstNameCol, lastNameCol, convenioCol, phoneCol) = MapColumns(headerRow);
 
-        var required = new[] { "FirstName", "LastName", "Convenio", "PhoneNumber" };
-        var missing = required.Where(r => !columnMap.ContainsKey(r)).ToList();
-
-        if (missing.Count > 0)
+        if (fullNameCol is null && (firstNameCol is null || lastNameCol is null))
         {
             throw new InvalidOperationException(
-                $"No se encontraron en el Excel las columnas: {string.Join(", ", missing)}. " +
-                "Verifica que los encabezados existan (ej: NOMBRE, APELLIDO, CONVENIO, TELEFONO).");
+                "No se encontro una columna de 'Nombre completo', ni el par 'Nombre' + 'Apellido' en el Excel.");
+        }
+
+        if (convenioCol is null || phoneCol is null)
+        {
+            throw new InvalidOperationException(
+                "No se encontraron en el Excel las columnas de Convenio y/o Telefono.");
         }
 
         var result = new List<CustomerImportRowDto>();
@@ -43,21 +48,28 @@ public class ExcelReaderService : IExcelReaderService
             var row = ws.Row(rowNum);
             if (row.IsEmpty()) continue;
 
-            var firstName = GetCellRawText(row.Cell(columnMap["FirstName"]));
-            var lastName = GetCellRawText(row.Cell(columnMap["LastName"]));
-            var convenio = GetCellRawText(row.Cell(columnMap["Convenio"]));
-            var phone = GetCellRawText(row.Cell(columnMap["PhoneNumber"]));
+            string fullName;
+            if (fullNameCol.HasValue)
+            {
+                fullName = GetCellRawText(row.Cell(fullNameCol.Value));
+            }
+            else
+            {
+                var first = GetCellRawText(row.Cell(firstNameCol!.Value));
+                var last = GetCellRawText(row.Cell(lastNameCol!.Value));
+                fullName = $"{first} {last}".Trim();
+            }
 
-            // Fila completamente vacia en los campos que nos importan: se ignora silenciosamente
-            if (string.IsNullOrWhiteSpace(firstName) && string.IsNullOrWhiteSpace(lastName)
-                && string.IsNullOrWhiteSpace(convenio) && string.IsNullOrWhiteSpace(phone))
+            var convenio = GetCellRawText(row.Cell(convenioCol.Value));
+            var phone = GetCellRawText(row.Cell(phoneCol.Value));
+
+            if (string.IsNullOrWhiteSpace(fullName) && string.IsNullOrWhiteSpace(convenio) && string.IsNullOrWhiteSpace(phone))
                 continue;
 
             result.Add(new CustomerImportRowDto
             {
                 RowNumber = rowNum,
-                FirstName = firstName,
-                LastName = lastName,
+                FullName = fullName,
                 Convenio = convenio,
                 PhoneNumber = phone
             });
@@ -66,31 +78,30 @@ public class ExcelReaderService : IExcelReaderService
         return result;
     }
 
-    private static Dictionary<string, int> MapColumns(IXLRow headerRow)
+    private static (int? fullNameCol, int? firstNameCol, int? lastNameCol, int? convenioCol, int? phoneCol) MapColumns(IXLRow headerRow)
     {
-        var columnMap = new Dictionary<string, int>();
+        int? fullNameCol = null, firstNameCol = null, lastNameCol = null, convenioCol = null, phoneCol = null;
 
         foreach (var cell in headerRow.CellsUsed())
         {
-            var normalizedHeader = Normalize(cell.GetString());
+            var normalized = Normalize(cell.GetString());
+            var colNum = cell.Address.ColumnNumber;
 
-            foreach (var (field, aliases) in ColumnAliases)
-            {
-                if (columnMap.ContainsKey(field)) continue;
-
-                if (aliases.Any(alias => Normalize(alias) == normalizedHeader))
-                {
-                    columnMap[field] = cell.Address.ColumnNumber;
-                    break;
-                }
-            }
+            if (fullNameCol is null && FullNameAliases.Any(a => Normalize(a) == normalized))
+                fullNameCol = colNum;
+            else if (firstNameCol is null && FirstNameAliases.Any(a => Normalize(a) == normalized))
+                firstNameCol = colNum;
+            else if (lastNameCol is null && LastNameAliases.Any(a => Normalize(a) == normalized))
+                lastNameCol = colNum;
+            else if (convenioCol is null && ConvenioAliases.Any(a => Normalize(a) == normalized))
+                convenioCol = colNum;
+            else if (phoneCol is null && PhoneAliases.Any(a => Normalize(a) == normalized))
+                phoneCol = colNum;
         }
 
-        return columnMap;
+        return (fullNameCol, firstNameCol, lastNameCol, convenioCol, phoneCol);
     }
 
-    // Quita tildes, espacios de mas, y pasa a mayusculas para poder comparar
-    // "Teléfono", "TELEFONO ", "telefono" etc. como si fueran lo mismo.
     private static string Normalize(string input)
     {
         var trimmed = input.Trim().ToUpperInvariant();
@@ -106,7 +117,6 @@ public class ExcelReaderService : IExcelReaderService
         return sb.ToString();
     }
 
-    // Evita que numeros grandes (celulares) salgan en notacion cientifica o con decimales.
     private static string GetCellRawText(IXLCell cell)
     {
         if (cell.IsEmpty()) return string.Empty;

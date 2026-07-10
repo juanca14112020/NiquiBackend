@@ -11,4 +11,8 @@ public interface ICustomerService
     Task<CustomerResponseDto> CreateAsync(CustomerCreateDto dto, Guid currentUserId, string currentUserRole);
     Task<bool> UpdateAsync(Guid id, CustomerUpdateDto dto);
     Task<bool> DeleteAsync(Guid id);
+
+    Task<int> DeleteAllAsync();
+
+    Task<byte[]> ExportToExcelAsync(CustomerQueryFilter filter);
 }
