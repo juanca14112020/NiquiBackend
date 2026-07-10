@@ -20,9 +20,21 @@ public class CustomerController : ControllerBase
         _bulkImportService = bulkImportService;
     }
 
-    //Developer, SuperAdmin y Admin pueden ver el listado completo
+    // Developer, SuperAdmin y Admin pueden ver el listado paginado y con filtros
     [HttpGet]
-    public async Task<IActionResult> GetAll() => Ok(await _customerService.GetAllAsync());
+    public async Task<IActionResult> GetPaged([FromQuery] CustomerQueryFilter filter)
+    {
+        var result = await _customerService.GetPagedAsync(filter);
+        return Ok(result);
+    }
+
+    // Endpoint para obtener la lista de convenios disponibles para el dropdown
+    [HttpGet("convenios")]
+    public async Task<IActionResult> GetConvenios()
+    {
+        var convenios = await _customerService.GetConveniosAsync();
+        return Ok(convenios);
+    }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
@@ -31,7 +43,7 @@ public class CustomerController : ControllerBase
         return customer is null ? NotFound() : Ok(customer);
     }
 
-    //Developer, SuperAdmin y Admin pueden crear customers
+    // Developer, SuperAdmin y Admin pueden crear customers
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CustomerCreateDto dto)
     {
@@ -43,20 +55,20 @@ public class CustomerController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> update(Guid id, [FromBody] CustomerUpdateDto dto)
+    public async Task<IActionResult> Update(Guid id, [FromBody] CustomerUpdateDto dto)
     {
         var success = await _customerService.UpdateAsync(id, dto);
         return success ? NoContent() : NotFound();
     }
 
-    [HttpDelete("id:guid")]
+    [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
         var success = await _customerService.DeleteAsync(id);
         return success ? NoContent() : NotFound();
     }
 
-    //BulkImport: SOLO SuperAdmin y Admin
+    // BulkImport: SOLO SuperAdmin y Admin
     [HttpPost("bulk-import")]
     [Authorize(Policy = "CanBulkImportCustomers")]
     [ProducesResponseType(typeof(CustomerBulkImportResultDto), StatusCodes.Status200OK)]
@@ -73,5 +85,4 @@ public class CustomerController : ControllerBase
 
         return Ok(result);
     }
-
 }
