@@ -15,4 +15,7 @@ public interface ICustomerService
     Task<int> DeleteAllAsync();
 
     Task<byte[]> ExportToExcelAsync(CustomerQueryFilter filter);
+
+    //Marca IsCalled = true cuando Twilio confirma que la llamada se completo
+    Task<bool> MarkAsCalledAsync(Guid customerId);
 }

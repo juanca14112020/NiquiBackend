@@ -13,6 +13,7 @@ using NiquiBackend.Infrastructure.BulkOperations;
 using NiquiBackend.Infrastructure.ExcelReading;
 using NiquiBackend.Infrastructure.Persistence.Generated;
 using NiquiBackend.Infrastructure.Security;
+using Twilio;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -131,6 +132,8 @@ builder.Services.AddScoped<IValidator<CustomerImportRowDto>,CustomerImportRowVal
 builder.Services.AddScoped<IExcelReaderService, ExcelReaderService>();
 builder.Services.AddScoped<IBulkInsertService, SqlBulkInsertService>();
 builder.Services.AddScoped<ICustomerBulkImportService, CustomerBulkImportService>();
+
+TwilioClient.Init(builder.Configuration["Twilio:AccountSid"], builder.Configuration["Twilio:AuthToken"]);
 
 var app = builder.Build();
 

@@ -243,4 +243,13 @@ public class CustomerService : ICustomerService
         workbook.SaveAs(stream);
         return stream.ToArray();
     }
+
+    public async Task<bool> MarkAsCalledAsync(Guid customerId)
+    {
+        var updated = await _context.Customers
+            .Where(c => c.CustomerId == customerId)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.IsCalled, true));
+        
+        return updated > 0;
+    }
 }
