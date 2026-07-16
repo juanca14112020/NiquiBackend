@@ -252,4 +252,15 @@ public class CustomerService : ICustomerService
         
         return updated > 0;
     }
+
+    public async Task<bool> MarkCallResultAsync(Guid customerId, bool isApproved)
+    {
+        var updated = await _context.Customers
+            .Where(c => c.CustomerId == customerId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.IsCalled, true)
+                .SetProperty(c => c.IsApproved, isApproved));
+        
+        return updated > 0;
+    }
 }
