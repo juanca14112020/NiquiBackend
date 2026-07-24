@@ -44,19 +44,29 @@ public class CallsController : ControllerBase
         return Content(response.ToString(), "application/xml");
     }
 
-    // Respuesta al Audio 1: SI -> Audio 3 | NO -> Audio 2 | silencio -> cuelga | confuso -> reintenta
+    // Respuesta al Audio 1: SI -> Audio 3 | NO -> Audio 5 (no aprobado) | silencio -> reintenta | confuso -> reintenta
     [HttpPost("gather/{customerId}/audio1")]
     [AllowAnonymous]
-    public async Task<IActionResult> GatherAudio1(string customerId, [FromQuery] int attempt = 1) 
+    public async Task<IActionResult> GatherAudio1(string customerId, [FromQuery] int attempt = 1)
     {
         Request.Form.TryGetValue("SpeechResult", out var speechResultValue);
         var speechResult = speechResultValue.ToString();
-        
+
         var response = new VoiceResponse();
 
         if (string.IsNullOrWhiteSpace(speechResult))
         {
-            response.Hangup();
+            if (attempt < MaxAttempts)
+            {
+                var gather = BuildGather($"gather/{customerId}/audio1", attempt: attempt + 1);
+                gather.Play(new Uri(_config["Twilio:Audio1Url"]!));
+                response.Append(gather);
+                response.Hangup();
+            }
+            else
+            {
+                response.Hangup();
+            }
             return Content(response.ToString(), "application/xml");
         }
 
@@ -73,8 +83,7 @@ public class CallsController : ControllerBase
         {
             response.Play(new Uri(_config["Twilio:Audio5Url"]!));
             response.Hangup();
-            // Aquí estaba el error: usabas await en un método síncrono
-            await MarkResult(customerId, isApproved: false); 
+            _ = MarkResult(customerId, isApproved: false);
         }
         else if (attempt < MaxAttempts)
         {
@@ -91,7 +100,7 @@ public class CallsController : ControllerBase
         return Content(response.ToString(), "application/xml");
     }
 
-    // Respuesta al Audio 2: SI -> Audio 3 | NO/confuso -> repite Audio 2 (hasta el limite) | silencio -> cuelga
+    // Respuesta al Audio 2: SI -> Audio 3 | NO/confuso -> repite Audio 2 (hasta el limite) | silencio -> reintenta
     [HttpPost("gather/{customerId}/audio2")]
     [AllowAnonymous]
     public async Task<IActionResult> GatherAudio2(string customerId, [FromQuery] int attempt = 1)
@@ -101,7 +110,18 @@ public class CallsController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(speechResult))
         {
-            response.Hangup();
+            if (attempt < MaxAttempts)
+            {
+                var gather = BuildGather($"gather/{customerId}/audio2", attempt: attempt + 1);
+                gather.Play(new Uri(_config["Twilio:Audio2Url"]!));
+                response.Append(gather);
+                response.Hangup();
+            }
+            else
+            {
+                response.Hangup();
+                _ = MarkResult(customerId, isApproved: false);
+            }
             return Content(response.ToString(), "application/xml");
         }
 
@@ -109,6 +129,7 @@ public class CallsController : ControllerBase
 
         if (answer == true)
         {
+            // Todavia no es resultado final: pasa a Audio 3, no se marca nada aca
             var gather = BuildGather($"gather/{customerId}/audio3", attempt: 1);
             gather.Play(new Uri(_config["Twilio:Audio3Url"]!));
             response.Append(gather);
@@ -126,7 +147,7 @@ public class CallsController : ControllerBase
         {
             // Se agotaron los intentos diciendo que no -> se toma como respuesta definitiva negativa
             response.Hangup();
-            await MarkResult(customerId, isApproved: false);
+            _ = MarkResult(customerId, isApproved: false);
         }
 
         return Content(response.ToString(), "application/xml");
@@ -142,7 +163,19 @@ public class CallsController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(speechResult))
         {
-            response.Hangup();
+            if (attempt < MaxAttempts)
+            {
+                var gather = BuildGather($"gather/{customerId}/audio3", attempt: attempt + 1);
+                gather.Play(new Uri(_config["Twilio:Audio3Url"]!));
+                response.Append(gather);
+                response.Hangup();
+            }
+            else
+            {
+                response.Play(new Uri(_config["Twilio:Audio5Url"]!));
+                response.Hangup();
+                _ = MarkResult(customerId, isApproved: false);
+            }
             return Content(response.ToString(), "application/xml");
         }
 
@@ -151,14 +184,14 @@ public class CallsController : ControllerBase
         if (answer == true)
         {
             response.Play(new Uri(_config["Twilio:Audio4Url"]!));
-            await MarkResult(customerId, isApproved: true);
             response.Hangup();
+            _ = MarkResult(customerId, isApproved: true);
         }
         else if (answer == false || attempt >= MaxAttempts)
         {
             response.Play(new Uri(_config["Twilio:Audio5Url"]!));
-            await MarkResult(customerId, isApproved: false);
             response.Hangup();
+            _ = MarkResult(customerId, isApproved: false);
         }
         else
         {
@@ -206,7 +239,7 @@ public class CallsController : ControllerBase
     }
 
     // timeout=3 -> si el cliente no dice nada en 3 segundos, Twilio corta el Gather
-    // y Twilio igual pega a nuestra action (con SpeechResult vacio), donde colgamos.
+    // y Twilio igual pega a nuestra action (con SpeechResult vacio), donde reintentamos o colgamos.
     private Gather BuildGather(string relativePath, int attempt)
     {
         return new Gather(
@@ -215,8 +248,8 @@ public class CallsController : ControllerBase
             method: HttpMethod.Post,
             language: Gather.LanguageEnum.EsMx,
             hints: "sí,si,no,claro,correcto,negativo",
-            speechTimeout: "auto",
-            timeout: 3
+            speechTimeout: "2",
+            actionOnEmptyResult: true
         );
     }
 
