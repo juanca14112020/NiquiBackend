@@ -19,4 +19,5 @@ public interface ICustomerService
     //Marca IsCalled = true cuando Twilio confirma que la llamada se completo
     Task<bool> MarkAsCalledAsync(Guid customerId);
     Task<bool> MarkCallResultAsync(Guid customerId, bool isApproved);
+    Task<List<CustomerResponseDto>> GetEligibleForMassCallAsync(string? convenio);
 }

@@ -263,4 +263,29 @@ public class CustomerService : ICustomerService
         
         return updated > 0;
     }
+
+    public async Task<List<CustomerResponseDto>> GetEligibleForMassCallAsync(string? convenio)
+{
+    var query = _context.Customers.Where(c => !c.IsCalled);
+
+    if (!string.IsNullOrEmpty(convenio) && convenio != "Cualquiera")
+        query = query.Where(c => c.Convenio == convenio);
+
+    var customers = await query
+        .Select(c => new CustomerResponseDto
+        {
+            CustomerId = c.CustomerId,
+            FullName = c.FullName,
+            Convenio = c.Convenio,
+            PhoneNumber = c.PhoneNumber,
+            IsApproved = c.IsApproved,
+            IsCalled = c.IsCalled,
+            CreatedBySuperAdminId = c.CreatedBySuperAdminId,
+            CreatedByAdminId = c.CreatedByAdminId,
+            CreatedAt = c.CreatedAt
+        })
+        .ToListAsync();
+
+    return customers;
+}
 }

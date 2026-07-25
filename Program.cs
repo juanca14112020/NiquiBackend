@@ -133,6 +133,8 @@ builder.Services.AddScoped<IExcelReaderService, ExcelReaderService>();
 builder.Services.AddScoped<IBulkInsertService, SqlBulkInsertService>();
 builder.Services.AddScoped<ICustomerBulkImportService, CustomerBulkImportService>();
 
+builder.Services.AddSingleton<NiquiBackend.Infrastructure.MassCalls.MassCallRunner>();
+
 TwilioClient.Init(builder.Configuration["Twilio:AccountSid"], builder.Configuration["Twilio:AuthToken"]);
 
 var app = builder.Build();
