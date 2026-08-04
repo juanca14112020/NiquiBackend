@@ -5,4 +5,6 @@ public class StartMassCallDto
   public string Convenio { get; set; } = null!;
   public int TargetCalls { get; set; }
   public int TimeLimitMinutes { get; set; }
+
+  public string TimeSlot { get; set; } = string.Empty;
 }

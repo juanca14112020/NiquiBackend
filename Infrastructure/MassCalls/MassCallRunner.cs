@@ -1,7 +1,7 @@
-// Infrastructure/MassCalls/MassCallRunner.cs
 using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using NiquiBackend.Application.Interfaces.Services;
+using NiquiBackend.Infrastructure.Common;
 using NiquiBackend.Infrastructure.Persistence.Generated;
 using Twilio.Exceptions;
 using Twilio.Rest.Api.V2010.Account;
@@ -22,11 +22,11 @@ public class MassCallRunner
         _config = config;
     }
 
-    public void Start(Guid executionId, string convenio, int targetCalls, int timeLimitMinutes)
+    public void Start(Guid executionId, string convenio, int targetCalls, int timeLimitMinutes, string timeSlot)
     {
         var cts = new CancellationTokenSource(TimeSpan.FromMinutes(timeLimitMinutes));
         _running[executionId] = cts;
-        _ = Task.Run(() => RunAsync(executionId, convenio, targetCalls, cts.Token), cts.Token);
+        _ = Task.Run(() => RunAsync(executionId, convenio, targetCalls, timeSlot, cts.Token), cts.Token);
     }
 
     public async Task StopAsync(Guid executionId, NiquiDbContext db)
@@ -43,7 +43,7 @@ public class MassCallRunner
         }
     }
 
-    private async Task RunAsync(Guid executionId, string convenio, int targetCalls, CancellationToken token)
+    private async Task RunAsync(Guid executionId, string convenio, int targetCalls, string timeSlot, CancellationToken token)
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NiquiDbContext>();
@@ -53,7 +53,6 @@ public class MassCallRunner
         if (execution == null) return;
 
         int callsMade = 0;
-        var wasCancelled = false;
 
         try
         {
@@ -63,13 +62,19 @@ public class MassCallRunner
 
             foreach (var customer in customers)
             {
-                if (token.IsCancellationRequested) { wasCancelled = true; break; }
+                if (token.IsCancellationRequested) break;
                 if (callsMade >= targetCalls) break;
+
+                // Control de franja horaria en hora Colombia
+                bool isInValidTimeSlot = await EnsureValidTimeSlotAsync(timeSlot, token);
+                if (!isInValidTimeSlot) break;
 
                 try
                 {
+                    var formattedPhone = NormalizeColombianNumber(customer.PhoneNumber);
+
                     CallResource.Create(
-                        to: new PhoneNumber(customer.PhoneNumber),
+                        to: new PhoneNumber(formattedPhone),
                         from: new PhoneNumber(fromNumber),
                         url: new Uri($"{baseUrl}/api/calls/twiml/{customer.CustomerId}"),
                         method: HttpMethod.Get,
@@ -95,7 +100,6 @@ public class MassCallRunner
                 }
                 catch (TaskCanceledException)
                 {
-                    wasCancelled = true;
                     break;
                 }
             }
@@ -109,5 +113,76 @@ public class MassCallRunner
             await db.SaveChangesAsync(CancellationToken.None);
             _running.TryRemove(executionId, out _);
         }
+    }
+
+    private async Task<bool> EnsureValidTimeSlotAsync(string timeSlot, CancellationToken token)
+    {
+        var slot = timeSlot?.ToLowerInvariant().Trim() ?? "";
+
+        while (!token.IsCancellationRequested)
+        {
+            var nowCol = ColombiaTimeHelper.Now;
+            var currentTime = nowCol.TimeOfDay;
+
+            var morningStart   = new TimeSpan(9, 0, 0);   // 09:00 AM
+            var morningEnd     = new TimeSpan(12, 0, 0);  // 12:00 PM
+            var afternoonStart = new TimeSpan(14, 0, 0); // 02:00 PM
+            var afternoonEnd   = new TimeSpan(17, 0, 0);  // 05:00 PM
+
+            if (slot == "manana" || slot == "morning")
+            {
+                if (currentTime < morningStart)
+                {
+                    await Task.Delay(morningStart - currentTime, token);
+                    continue;
+                }
+                if (currentTime >= morningEnd) return false;
+                return true;
+            }
+
+            if (slot == "tarde" || slot == "afternoon")
+            {
+                if (currentTime < afternoonStart)
+                {
+                    await Task.Delay(afternoonStart - currentTime, token);
+                    continue;
+                }
+                if (currentTime >= afternoonEnd) return false;
+                return true;
+            }
+
+            // Franja "todo_el_dia" / "allday" / por defecto
+            if (currentTime < morningStart)
+            {
+                await Task.Delay(morningStart - currentTime, token);
+                continue;
+            }
+
+            if (currentTime >= morningEnd && currentTime < afternoonStart)
+            {
+                // Pausa automática de 12:00 PM a 2:00 PM (reanuda sola a las 2:00 PM)
+                await Task.Delay(afternoonStart - currentTime, token);
+                continue;
+            }
+
+            if (currentTime >= afternoonEnd) return false;
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string NormalizeColombianNumber(string rawPhone)
+    {
+        if (string.IsNullOrWhiteSpace(rawPhone)) return string.Empty;
+
+        var cleaned = new string(rawPhone.Where(char.IsDigit).ToArray());
+
+        if (cleaned.StartsWith("0057")) cleaned = cleaned[4..];
+        else if (cleaned.StartsWith("57") && cleaned.Length > 10) cleaned = cleaned[2..];
+        else if (cleaned.StartsWith("0") && cleaned.Length == 11) cleaned = cleaned[1..];
+
+        return $"+57{cleaned}";
     }
 }

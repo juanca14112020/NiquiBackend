@@ -24,6 +24,12 @@ public class CustomerService : ICustomerService
             query = query.Where(c => c.FullName.ToLower().Contains(searchTerm));
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.PhoneNumber))
+        {
+            var phoneDigits = filter.PhoneNumber.Trim();
+            query = query.Where(c => c.PhoneNumber.Contains(phoneDigits));
+        }
+
         if (!string.IsNullOrWhiteSpace(filter.Convenio))
         {
             query = query.Where(c => c.Convenio == filter.Convenio);
@@ -177,6 +183,12 @@ public class CustomerService : ICustomerService
             query = query.Where(c => c.FullName.ToLower().Contains(searchTerm));
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.PhoneNumber))
+        {
+            var phoneDigits = filter.PhoneNumber.Trim();
+            query = query.Where(c => c.PhoneNumber.Contains(phoneDigits));
+        }
+
         if (!string.IsNullOrWhiteSpace(filter.Convenio))
         {
             query = query.Where(c => c.Convenio == filter.Convenio);
@@ -265,27 +277,27 @@ public class CustomerService : ICustomerService
     }
 
     public async Task<List<CustomerResponseDto>> GetEligibleForMassCallAsync(string? convenio)
-{
-    var query = _context.Customers.Where(c => !c.IsCalled);
+    {
+        var query = _context.Customers.Where(c => !c.IsCalled);
 
-    if (!string.IsNullOrEmpty(convenio) && convenio != "Cualquiera")
-        query = query.Where(c => c.Convenio == convenio);
+        if (!string.IsNullOrEmpty(convenio) && convenio != "Cualquiera")
+            query = query.Where(c => c.Convenio == convenio);
 
-    var customers = await query
-        .Select(c => new CustomerResponseDto
-        {
-            CustomerId = c.CustomerId,
-            FullName = c.FullName,
-            Convenio = c.Convenio,
-            PhoneNumber = c.PhoneNumber,
-            IsApproved = c.IsApproved,
-            IsCalled = c.IsCalled,
-            CreatedBySuperAdminId = c.CreatedBySuperAdminId,
-            CreatedByAdminId = c.CreatedByAdminId,
-            CreatedAt = c.CreatedAt
-        })
-        .ToListAsync();
+        var customers = await query
+            .Select(c => new CustomerResponseDto
+            {
+                CustomerId = c.CustomerId,
+                FullName = c.FullName,
+                Convenio = c.Convenio,
+                PhoneNumber = c.PhoneNumber,
+                IsApproved = c.IsApproved,
+                IsCalled = c.IsCalled,
+                CreatedBySuperAdminId = c.CreatedBySuperAdminId,
+                CreatedByAdminId = c.CreatedByAdminId,
+                CreatedAt = c.CreatedAt
+            })
+            .ToListAsync();
 
-    return customers;
-}
+        return customers;
+    }
 }

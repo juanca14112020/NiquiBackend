@@ -26,48 +26,9 @@ public class AuthController : ControllerBase
 
     // ===== TEMPORALES - quitar o proteger antes de produccion =====
 
-    [HttpPost("register-developer-temp")]
-    public async Task<IActionResult> RegisterDeveloperTemp([FromBody] RegisterRequestDto request)
-    {
-        try
-        {
-            var id = await _authService.RegisterDeveloperAsync(request);
-            return Ok(new { message = "Developer creado.", id });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
+    
 
-    [HttpPost("register-superadmin-temp")]
-    public async Task<IActionResult> RegisterSuperAdminTemp([FromBody] RegisterRequestDto request, [FromQuery] Guid createdByDeveloperId)
-    {
-        try
-        {
-            var id = await _authService.RegisterSuperAdminAsync(request, createdByDeveloperId);
-            return Ok(new { message = "SuperAdmin creado.", id });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
+    
 
-    [HttpPost("register-admin-temp")]
-    public async Task<IActionResult> RegisterAdminTemp(
-        [FromBody] RegisterRequestDto request,
-        [FromQuery] Guid? createdByDeveloperId,
-        [FromQuery] Guid? createdBySuperAdminId)
-    {
-        try
-        {
-            var id = await _authService.RegisterAdminAsync(request, createdByDeveloperId, createdBySuperAdminId);
-            return Ok(new { message = "Admin creado.", id });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
+    
 }

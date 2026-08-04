@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NiquiBackend.Application.DTOs.MassCalls;
+using NiquiBackend.Infrastructure.Common;
 using NiquiBackend.Infrastructure.MassCalls;
 using NiquiBackend.Infrastructure.Persistence.Generated;
 
@@ -30,6 +31,7 @@ public class MassCallsController : ControllerBase
             Convenio = dto.Convenio,
             TargetCalls = dto.TargetCalls,
             TimeLimitMinutes = dto.TimeLimitMinutes,
+            TimeSlot = dto.TimeSlot,
             Status = "Running",
             CreatedAt = DateTime.UtcNow
         };
@@ -37,7 +39,7 @@ public class MassCallsController : ControllerBase
         _db.MassCallExecutions.Add(execution);
         await _db.SaveChangesAsync();
 
-        _runner.Start(execution.Id, dto.Convenio, dto.TargetCalls, dto.TimeLimitMinutes);
+        _runner.Start(execution.Id, dto.Convenio, dto.TargetCalls, dto.TimeLimitMinutes, dto.TimeSlot);
 
         return Ok(new { id = execution.Id });
     }
@@ -55,6 +57,21 @@ public class MassCallsController : ControllerBase
         var records = await _db.MassCallExecutions
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
-        return Ok(records);
+
+        var result = records.Select(x => new
+        {
+            x.Id,
+            x.Convenio,
+            x.TargetCalls,
+            x.CallsMade,
+            x.SkippedUnverified,
+            x.TimeLimitMinutes,
+            x.TimeSlot,
+            x.Status,
+            CreatedAt = ColombiaTimeHelper.ConvertToColombiaTime(x.CreatedAt),
+            FinishedAt = x.FinishedAt.HasValue ? ColombiaTimeHelper.ConvertToColombiaTime(x.FinishedAt.Value) : (DateTime?)null
+        });
+
+        return Ok(result);
     }
 }

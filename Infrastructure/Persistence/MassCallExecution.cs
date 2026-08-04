@@ -8,6 +8,7 @@ public class MassCallExecution
     public int CallsMade { get; set; }
     public int SkippedUnverified { get; set; }
     public int TimeLimitMinutes { get; set; }
+    public string TimeSlot { get; set; } = string.Empty; 
     public string Status { get; set; } = "Running";
     public DateTime CreatedAt { get; set; }
     public DateTime? FinishedAt { get; set; }

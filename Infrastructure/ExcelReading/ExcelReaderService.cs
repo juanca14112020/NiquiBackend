@@ -8,17 +8,15 @@ namespace NiquiBackend.Infrastructure.ExcelReading;
 
 public class ExcelReaderService : IExcelReaderService
 {
-    // Alias para nombre completo en una sola columna
     private static readonly string[] FullNameAliases =
         { "NOMBRE COMPLETO", "NOMBRE Y APELLIDO", "NOMBRES Y APELLIDOS", "FULLNAME", "NOMBRE COMPLETO CLIENTE" };
 
-    // Alias para cuando el Excel trae Nombre y Apellido en columnas separadas (se concatenan)
     private static readonly string[] FirstNameAliases = { "NOMBRE", "NOMBRES", "PRIMER NOMBRE", "FIRSTNAME" };
     private static readonly string[] LastNameAliases = { "APELLIDO", "APELLIDOS", "LASTNAME" };
 
-    private static readonly string[] ConvenioAliases = { "CONVENIO" };
+    private static readonly string[] ConvenioAliases = { "CONVENIO", "CONVENIOS", "COVENIO", "EMPRESA", "ENTIDAD" };
     private static readonly string[] PhoneAliases =
-        { "TELEFONO", "TELEFONOS", "CELULAR", "NUMERO", "NUMERO CELULAR", "TEL", "PHONE", "PHONENUMBER" };
+        { "TELEFONO", "TELEFONOS", "CELULAR", "CELULARES", "NUMERO", "NUMEROS", "NUMERO CELULAR", "TEL", "PHONE", "PHONENUMBER", "MOVIL" };
 
     public List<CustomerImportRowDto> ReadCustomers(Stream fileStream)
     {
@@ -28,10 +26,10 @@ public class ExcelReaderService : IExcelReaderService
         var headerRow = ws.Row(1);
         var (fullNameCol, firstNameCol, lastNameCol, convenioCol, phoneCol) = MapColumns(headerRow);
 
-        if (fullNameCol is null && (firstNameCol is null || lastNameCol is null))
+        if (fullNameCol is null && firstNameCol is null)
         {
             throw new InvalidOperationException(
-                "No se encontro una columna de 'Nombre completo', ni el par 'Nombre' + 'Apellido' en el Excel.");
+                "No se encontro una columna de 'Nombre completo', 'Nombre' + 'Apellido', ni 'Nombre' en el Excel.");
         }
 
         if (convenioCol is null || phoneCol is null)
@@ -53,11 +51,15 @@ public class ExcelReaderService : IExcelReaderService
             {
                 fullName = GetCellRawText(row.Cell(fullNameCol.Value));
             }
+            else if (firstNameCol.HasValue && lastNameCol.HasValue)
+            {
+                var first = GetCellRawText(row.Cell(firstNameCol.Value));
+                var last = GetCellRawText(row.Cell(lastNameCol.Value));
+                fullName = $"{first} {last}".Trim();
+            }
             else
             {
-                var first = GetCellRawText(row.Cell(firstNameCol!.Value));
-                var last = GetCellRawText(row.Cell(lastNameCol!.Value));
-                fullName = $"{first} {last}".Trim();
+                fullName = GetCellRawText(row.Cell(firstNameCol!.Value));
             }
 
             var convenio = GetCellRawText(row.Cell(convenioCol.Value));
@@ -88,15 +90,34 @@ public class ExcelReaderService : IExcelReaderService
             var colNum = cell.Address.ColumnNumber;
 
             if (fullNameCol is null && FullNameAliases.Any(a => Normalize(a) == normalized))
+            {
                 fullNameCol = colNum;
-            else if (firstNameCol is null && FirstNameAliases.Any(a => Normalize(a) == normalized))
+                continue;
+            }
+
+            if (firstNameCol is null && FirstNameAliases.Any(a => Normalize(a) == normalized))
+            {
                 firstNameCol = colNum;
-            else if (lastNameCol is null && LastNameAliases.Any(a => Normalize(a) == normalized))
+                continue;
+            }
+
+            if (lastNameCol is null && LastNameAliases.Any(a => Normalize(a) == normalized))
+            {
                 lastNameCol = colNum;
-            else if (convenioCol is null && ConvenioAliases.Any(a => Normalize(a) == normalized))
+                continue;
+            }
+
+            if (convenioCol is null && ConvenioAliases.Any(a => Normalize(a) == normalized))
+            {
                 convenioCol = colNum;
-            else if (phoneCol is null && PhoneAliases.Any(a => Normalize(a) == normalized))
+                continue;
+            }
+
+            if (phoneCol is null && PhoneAliases.Any(a => Normalize(a) == normalized))
+            {
                 phoneCol = colNum;
+                continue;
+            }
         }
 
         return (fullNameCol, firstNameCol, lastNameCol, convenioCol, phoneCol);
