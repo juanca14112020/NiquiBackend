@@ -36,7 +36,7 @@ public class CallsController : ControllerBase
     {
         var response = new VoiceResponse();
         
-        response.Play(new Uri(_config["Twilio:Audio1Url"]!));
+        response.Play(new Uri(_config["Twilio:Audio1NewUrl"]!));
         var gather = BuildGather($"gather/{customerId}/audio1", attempt: 1);
         response.Append(gather);
         response.Hangup();
@@ -77,7 +77,7 @@ public class CallsController : ControllerBase
         }
         else if (attempt < MaxAttempts)
         {
-            response.Play(new Uri(_config["Twilio:Audio1Url"]!));
+            response.Play(new Uri(_config["Twilio:Audio1NewUrl"]!));
             var gather = BuildGather($"gather/{customerId}/audio1", attempt: attempt + 1);
             response.Append(gather);
             response.Hangup();
@@ -186,6 +186,21 @@ public class CallsController : ControllerBase
         }
 
         return Ok();
+    }
+
+    // TwiML para llamadas ENTRANTES al número (cuando alguien nos devuelve la llamada).
+    // Configurar en Twilio Console -> Phone Numbers -> el número -> Voice Configuration ->
+    // "A call comes in" -> Webhook -> {BaseUrl}/api/calls/inbound
+    [HttpGet("inbound")]
+    [HttpPost("inbound")]
+    [AllowAnonymous]
+    public IActionResult InboundCall()
+    {
+        var response = new VoiceResponse();
+        response.Play(new Uri(_config["Twilio:InboundAudioUrl"]!));
+        response.Hangup();
+
+        return Content(response.ToString(), "application/xml");
     }
 
     private Gather BuildGather(string relativePath, int attempt)
