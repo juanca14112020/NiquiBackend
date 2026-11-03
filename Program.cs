@@ -19,7 +19,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 //DbContext (SQL Server)
 builder.Services.AddDbContext<NiquiDbContext>(options => 
-    options.UseSqlServer(builder.Configuration.GetConnectionString("NiquiConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("NiquiConnection"),
+        sql => sql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null)));
 
 
 //Controllers
