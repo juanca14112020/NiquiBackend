@@ -15,11 +15,13 @@ public class MassCallRunner
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _running = new();
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IConfiguration _config;
+    private readonly ILogger<MassCallRunner> _logger;
 
-    public MassCallRunner(IServiceScopeFactory scopeFactory, IConfiguration config)
+    public MassCallRunner(IServiceScopeFactory scopeFactory, IConfiguration config, ILogger<MassCallRunner> logger)
     {
         _scopeFactory = scopeFactory;
         _config = config;
+        _logger = logger;
     }
 
     public void Start(Guid executionId, string convenio, int targetCalls, int timeLimitMinutes, string timeSlot)
@@ -106,6 +108,11 @@ public class MassCallRunner
 
             if (execution.Status != "Stopped")
                 execution.Status = callsMade >= targetCalls ? "Completed" : "Timeout";
+        }
+        catch (Exception ex)
+        {
+            // Sin esto, cualquier error (credenciales Twilio, URL nula, etc.) mataba la tarea en silencio.
+            _logger.LogError(ex, "Fallo la ejecucion de llamadas masivas {ExecutionId}", executionId);
         }
         finally
         {

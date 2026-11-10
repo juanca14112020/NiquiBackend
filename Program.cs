@@ -17,6 +17,14 @@ using Twilio;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// En Render no existe appsettings.json: si no se definio PublicBaseUrl, usar la URL publica que Render inyecta.
+if (string.IsNullOrWhiteSpace(builder.Configuration["PublicBaseUrl"]))
+{
+    var renderUrl = Environment.GetEnvironmentVariable("RENDER_EXTERNAL_URL");
+    if (!string.IsNullOrWhiteSpace(renderUrl))
+        builder.Configuration["PublicBaseUrl"] = renderUrl;
+}
+
 //DbContext (SQL Server)
 builder.Services.AddDbContext<NiquiDbContext>(options => 
     options.UseSqlServer(builder.Configuration.GetConnectionString("NiquiConnection"),
