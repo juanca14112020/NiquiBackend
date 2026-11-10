@@ -1,9 +1,11 @@
 using System.Data;
 using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 using NiquiBackend.Application.DTOs.Customer;
 using NiquiBackend.Application.Interfaces.Infrastructure;
 using NiquiBackend.Application.Interfaces.Services;
 using NiquiBackend.Infrastructure.Common;
+using NiquiBackend.Infrastructure.Persistence.Generated;
 
 namespace NiquiBackend.Application.Services;
 
@@ -13,18 +15,38 @@ public class CustomerBulkImportService : ICustomerBulkImportService
     private readonly IExcelReaderService _excelReader;
     private readonly IBulkInsertService _bulkInsert;
     private readonly IValidator<CustomerImportRowDto> _validator;
+    private readonly NiquiDbContext _context;
+
+    // Evita que dos cargas simultaneas (doble envio, reintento) pasen ambas el chequeo de duplicados.
+    private static readonly SemaphoreSlim ImportLock = new(1, 1);
 
     public CustomerBulkImportService(
         IExcelReaderService excelReader,
         IBulkInsertService bulkInsert,
-        IValidator<CustomerImportRowDto> validator)
+        IValidator<CustomerImportRowDto> validator,
+        NiquiDbContext context)
     {
         _excelReader = excelReader;
         _bulkInsert = bulkInsert;
         _validator = validator;
+        _context = context;
     }
 
     public async Task<CustomerBulkImportResultDto> ImportAsync(
+        Stream file, Guid currentUserId, string currentUserRole)
+    {
+        await ImportLock.WaitAsync();
+        try
+        {
+            return await ImportInternalAsync(file, currentUserId, currentUserRole);
+        }
+        finally
+        {
+            ImportLock.Release();
+        }
+    }
+
+    private async Task<CustomerBulkImportResultDto> ImportInternalAsync(
         Stream file, Guid currentUserId, string currentUserRole)
     {
         var rows = _excelReader.ReadCustomers(file);
@@ -41,6 +63,10 @@ public class CustomerBulkImportService : ICustomerBulkImportService
         table.Columns.Add("CreatedByAdminID", typeof(Guid));
         table.Columns.Add("CreatedAt", typeof(DateTime));
 
+        // Telefonos que ya existen en la BD + los que ya se agregaron desde este mismo archivo.
+        var existingPhones = new HashSet<string>(
+            await _context.Customers.AsNoTracking().Select(c => c.PhoneNumber).ToListAsync());
+
         foreach (var row in rows)
         {
             // Normaliza el telefono a +573XXXXXXXXX (agrega +57 si no lo tenia).
@@ -56,6 +82,13 @@ public class CustomerBulkImportService : ICustomerBulkImportService
                 result.Rejected++;
                 result.Errors.Add(
                     $"Fila {row.RowNumber}: {string.Join("; ", validation.Errors.Select(e => e.ErrorMessage))}");
+                continue;
+            }
+
+            if (!existingPhones.Add(row.PhoneNumber))
+            {
+                result.Rejected++;
+                result.Errors.Add($"Fila {row.RowNumber}: el teléfono {row.PhoneNumber} ya existe (duplicado), no se insertó.");
                 continue;
             }
 
